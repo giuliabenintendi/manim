@@ -356,34 +356,73 @@ class FeedforwardNNNNNN(ThreeDScene):
         self.play(FadeOut(network_group, *self.mobjects))
         self.wait(0.5)
 
+        # INTRODUCING ACTIVATION FUNCTIONS
         # 📌 Create the Large Graph (White Background, No Grid)
         activation_graph = Axes(
             x_range=[-6, 6, 1], y_range=[-6, 6, 1], x_length=6, y_length=3,
             tips=True, axis_config={"color": WHITE}  
         ).scale(1.2).move_to(ORIGIN)
 
+        # Problem of Linear Activation
+        problem_text = Text("Without Activation, the Network is just Linear!", font_size=32, color=WHITE)
+        problem_text.next_to(activation_graph, UP, buff=1)
+
+        faded_formula = MathTex(
+            r"y = ", r"f", r"(wx + b)", font_size=36
+        ).set_color_by_tex("f", GRAY).next_to(problem_text, DOWN, buff=0.5)  
+
+        whiteFormula = MathTex(
+            r"y = ", r"f", r"(wx + b)", font_size=36
+        ).set_color_by_tex("f", YELLOW).next_to(problem_text, DOWN, buff=0.5)  
+
         # Add just X and Y axes, **no grid or tick labels**
         x_axis = Line(start=LEFT * 3, end=RIGHT * 3, color=WHITE, stroke_width=3)
         y_axis = Line(start=DOWN * 1.5, end=UP * 1.5, color=WHITE, stroke_width=3)
+        
+       # 📌 **Animate the Problem Statement**
+        self.play(Write(problem_text), Write(faded_formula),run_time=2)
+        self.wait(1)
+
+         # Plot linear function
+        linear_function = ("Linear", lambda x: x, r"Linear: f(x) = x", [-3, 3], [-3, 3])
+        self.play(Create(x_axis), Create(y_axis), run_time=1)
+        self.wait(0.5)
+        linear_curve = activation_graph.plot(lambda x: x, color=BLUE, stroke_width=3)
+        linear_label = MathTex(r"Linear: f(x) = x", font_size=30, color=WHITE)
+        linear_label.next_to(activation_graph, DOWN, buff=0.5)  # Better positioning
+        self.play(
+                    Create(linear_curve),  # Always create new curve
+                    Write(linear_label),  # Always write new label
+                    run_time=1.5
+                )
+        self.wait(1)
+
+        # 📌 **Create Text for Non-Linearity**
+        nonLinearity_text = Text("The ACTIVATION FUNCTION adds NON-LINEARITY...", font_size=32, color=WHITE)
+        nonLinearity_text.next_to(activation_graph, UP, buff=1)
+
+        self.wait(1)
+        
+        # **Step 1: Highlight the problem by fading 'f()'**
+        self.play(FadeOut(problem_text,faded_formula, run_time=0.5),
+                  TransformMatchingTex(faded_formula,whiteFormula, run_time=1.5),
+                  Transform(problem_text, nonLinearity_text, run_time=1.5))
 
         # 📌 Define Activation Functions (All in BLUE for consistency)
         activation_functions = [
             ("Sigmoid", lambda x: 1 / (1 + np.exp(-x)), r"Sigmoid: \sigma(x) = \frac{1}{1+e^{-x}}", [-6, 6], [0, 1]),
-            ("Linear", lambda x: x, r"Linear: f(x) = x", [-3, 3], [-3, 3]),
             ("ReLU", lambda x: np.maximum(0, x), r"ReLU: f(x) = \max(0, x)", [-3, 3], [-1, 3]),
             ("Tanh", lambda x: np.tanh(x), r"Tanh: \tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}", [-3, 3], [-1, 1]),
         ]
 
         # 📌 Fade in Axes
-        activation_title = Text("ACTIVATION FUNCTIONS", font_size=32, color=WHITE)
-        activation_title.next_to(activation_graph, UP, buff=1)  # Properly position the text
-        self.play(Write(activation_title),
-                  Create(x_axis), Create(y_axis), run_time=1)
-        self.wait(0.5)
+        #self.play(
+         #         Create(x_axis), Create(y_axis), run_time=1)
+        #self.wait(0.5)
 
         # Placeholder for function curve & labels
-        previous_curve = None
-        previous_label = None
+        previous_curve = linear_curve
+        previous_label = linear_label
 
         for name,func, formula,x_lim, y_lim in activation_functions:
             # 📌 Create the new function curve
@@ -414,21 +453,53 @@ class FeedforwardNNNNNN(ThreeDScene):
         self.play(FadeOut(previous_curve, previous_label, *self.mobjects))  
         self.play(Transform(previous_curve, original_network), run_time=1)
 
-        # 📌 Final Prediction Highlight
         output_box = SurroundingRectangle(output_neuron, color=GREEN, buff=0.2)
-        prediction_text = Text("FINAL OUTPUT: 87%", font_size=24, color=GREEN).next_to(output_box, UP, buff=0.3)    
+        self.play(Create(output_box), run_time=1)
 
-        self.play(Create(output_box), Write(prediction_text), run_time=1)
+        # 🎯 **Create Dynamic Number Counter**
+        number = DecimalNumber(font_size=22, color=GREEN, num_decimal_places=0).set_value(0)
+        percent_symbol = Text("%", font_size=24, color=GREEN)
+
+        # 📌 Group text elements together
+        prediction_text = VGroup(
+            Text("FINAL OUTPUT: ", font_size=20, color=GREEN),
+            number,
+            percent_symbol
+        ).arrange(RIGHT, buff=0.1).next_to(output_box, UP, buff=0.5)  # Ensure alignment
+
+        self.add(prediction_text)  # Add text group to scene
+        # 🎯 **Updater to adjust spacing of "%" dynamically**
+        def update_percent_symbol(mob):
+            mob.next_to(number, RIGHT, buff=0.1)  # Keep % symbol properly aligned
+
+        percent_symbol.add_updater(update_percent_symbol)
+
+        # 🎬 **Animate Count from 0 to 100 Without a Class**
+        def update_number(mob, alpha):
+            value = int(0 + alpha * 100)  # Ensure integer values
+            mob.set_value(value)
+
+        self.play(
+            UpdateFromAlphaFunc(number, update_number),  
+            run_time=3, rate_func=linear
+        )
+
+        question_mark = Text("?", font_size=22, color=GREEN).move_to(number.get_center())
+        self.play(Transform(number, question_mark), run_time=0.5)
+
+        # Remove the updater after transformation
+        percent_symbol.clear_updaters()
+
         self.wait(1)
         self.play(FadeOut(formula_base, new_formula), run_time=0.5)
 
         # 🎯 **Step 4: Fade Out Everything Except Summary Message**
-        final_text = Text("This is how a neural network processes data!", font_size=32, color=WHITE)
+        final_text = Text("This is how a neural network processes data!", font_size=32, color=RED)
         final_text.to_edge(DOWN, buff=0.5)
 
         self.play(Write(final_text), run_time=1.5)
         self.wait(2)
 
         # 🎯 **Final Fade Out**
-        self.play(FadeOut(final_text))
-        self.wait(1)
+        self.play(FadeOut(*self.mobjects))
+        
